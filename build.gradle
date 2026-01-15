@@ -1,0 +1,85 @@
+plugins {
+  id 'java-library'
+  id 'maven-publish'
+}
+
+group = 'me.hanju.streambind'
+version = '0.0.1-SNAPSHOT'
+description = 'A library for merging streaming chunk objects into a single accumulated result'
+
+java {
+  toolchain { languageVersion = JavaLanguageVersion.of(21) }
+  withSourcesJar()
+  withJavadocJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+  options.encoding = 'UTF-8'
+}
+
+tasks.withType(Javadoc).configureEach {
+  options.encoding = 'UTF-8'
+  options.charSet = 'UTF-8'
+  failOnError = false
+}
+
+tasks.named('test') {
+  useJUnitPlatform()
+}
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  api 'org.slf4j:slf4j-api:2.0.17'
+  api 'io.projectreactor:reactor-core:3.8.1'
+
+  testImplementation 'org.junit.jupiter:junit-jupiter:5.14.1'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+  testRuntimeOnly 'ch.qos.logback:logback-classic:1.5.23'
+  testCompileOnly 'org.projectlombok:lombok:1.18.36'
+  testAnnotationProcessor 'org.projectlombok:lombok:1.18.36'
+}
+
+publishing {
+  publications {
+    mavenJava(MavenPublication) {
+      from components.java
+
+      pom {
+        name = 'streambind'
+        description = project.description
+        url = 'https://github.com/agent-hanju/streambind'
+        inceptionYear = '2025'
+
+        licenses {
+          license {
+            name = 'MIT License'
+            url = 'https://opensource.org/licenses/MIT'
+            distribution = 'repo'
+          }
+        }
+
+        developers {
+          developer {
+            id = 'agent-hanju'
+            name = 'hanju'
+            email = 'agent.hanju@gmail.com'
+          }
+        }
+
+        scm {
+          url = 'https://github.com/agent-hanju/streambind'
+          connection = 'scm:git:git://github.com/agent-hanju/streambind.git'
+          developerConnection = 'scm:git:ssh://git@github.com/agent-hanju/streambind.git'
+        }
+
+        issueManagement {
+          system = 'GitHub Issues'
+          url = 'https://github.com/agent-hanju/streambind/issues'
+        }
+      }
+    }
+  }
+}
