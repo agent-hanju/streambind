@@ -15,6 +15,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import me.hanju.streambind.annotation.StreamOverwrite;
+import me.hanju.streambind.exception.StreamBindException;
 
 /**
  * 단일 필드에 대한 캐시된 메타데이터.
@@ -136,14 +137,14 @@ public record FieldMetadata(
    *
    * @param fieldName 필드명 (오류 메시지용)
    * @param accessor  getter 메서드 (필수)
-   * @throws MetadataException getter가 없거나 LambdaMetafactory 실패 시
+   * @throws StreamBindException getter가 없거나 LambdaMetafactory 실패 시
    */
   private static Function<Object, Object> createGetter(
       final String fieldName,
       final Method accessor) {
 
     if (accessor == null) {
-      throw new MetadataException(
+      throw new StreamBindException(
           "No getter method found for field: " + fieldName
               + ". Add a public getter (getName() or name()).",
           null);
@@ -174,7 +175,7 @@ public record FieldMetadata(
       return (Function<Object, Object>) site.getTarget().invokeExact();
 
     } catch (final Throwable e) {
-      throw new MetadataException("Failed to create getter for field: " + fieldName, e);
+      throw new StreamBindException("Failed to create getter for field: " + fieldName, e);
     }
   }
 
@@ -217,7 +218,7 @@ public record FieldMetadata(
       return (BiConsumer<Object, Object>) site.getTarget().invokeExact();
 
     } catch (final Throwable e) {
-      throw new MetadataException("Failed to create setter for field: " + fieldName, e);
+      throw new StreamBindException("Failed to create setter for field: " + fieldName, e);
     }
   }
 
@@ -236,10 +237,10 @@ public record FieldMetadata(
     }
     try {
       return getter.apply(source);
-    } catch (final MetadataException e) {
+    } catch (final StreamBindException e) {
       throw e;
     } catch (final Exception e) {
-      throw new MetadataException(
+      throw new StreamBindException(
           "Failed to get field value: " + fieldName, e);
     }
   }

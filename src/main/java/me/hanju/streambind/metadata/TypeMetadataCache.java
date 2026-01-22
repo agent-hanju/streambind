@@ -20,7 +20,7 @@ import java.util.function.BinaryOperator;
 
 import me.hanju.streambind.annotation.StreamIndex;
 import me.hanju.streambind.annotation.StreamOverwrite;
-import me.hanju.streambind.metadata.MetadataException;
+import me.hanju.streambind.exception.StreamBindException;
 
 /**
  * 타입 메타데이터를 캐싱하여 반복적인 리플렉션을 방지하는 스레드 세이프 캐시.
@@ -282,7 +282,7 @@ public final class TypeMetadataCache {
         try {
           return mergeMethod.invoke(acc, delta);
         } catch (final Exception ex) {
-          throw new MetadataException("Failed to invoke merge method", ex);
+          throw new StreamBindException("Failed to invoke merge method", ex);
         }
       };
     }

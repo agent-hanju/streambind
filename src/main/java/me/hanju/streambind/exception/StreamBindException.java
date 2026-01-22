@@ -1,12 +1,12 @@
 package me.hanju.streambind.exception;
 
 /**
- * 스트림 바인딩 처리 중 발생하는 예외.
+ * streambind가 발생시키는 RuntimeException.
  */
 public final class StreamBindException extends RuntimeException {
 
   /**
-   * 메시지를 포함한 예외를 생성한다.
+   * 메시지를 포함한 StreamBindException을 발생시킨다.
    *
    * @param message 예외 메시지
    */
@@ -15,7 +15,7 @@ public final class StreamBindException extends RuntimeException {
   }
 
   /**
-   * 메시지와 원인을 포함한 예외를 생성한다.
+   * 발생한 예외를 StreamBindException으로 감싼다.
    *
    * @param message 예외 메시지
    * @param cause   원인 예외

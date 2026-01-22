@@ -1,6 +1,11 @@
-package me.hanju.streambind;
+package me.hanju.streambind.merge;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,7 +21,6 @@ import lombok.Setter;
 import me.hanju.streambind.annotation.StreamIndex;
 import me.hanju.streambind.annotation.StreamList;
 import me.hanju.streambind.annotation.StreamOverwrite;
-import me.hanju.streambind.merge.StreamMerger;
 import me.hanju.streambind.metadata.TypeMetadataCache;
 
 class StreamMergerTest {
@@ -99,18 +103,18 @@ class StreamMergerTest {
       StreamMerger<ConventionIndexItem> merger = new StreamMerger<>(ConventionIndexItem.class);
 
       ConventionIndexItem delta1 = new ConventionIndexItem();
-      delta1.index = 0;  // 덮어쓰기 대상
+      delta1.index = 0; // 덮어쓰기 대상
       delta1.data = "Hello";
       merger.applyDelta(delta1);
 
       ConventionIndexItem delta2 = new ConventionIndexItem();
-      delta2.index = 99;  // 덮어쓰기됨
+      delta2.index = 99; // 덮어쓰기됨
       delta2.data = " world";
       merger.applyDelta(delta2);
 
       ConventionIndexItem result = merger.build();
-      assertEquals(99, result.index);  // 덮어쓰기
-      assertEquals("Hello world", result.data);  // 연결
+      assertEquals(99, result.index); // 덮어쓰기
+      assertEquals("Hello world", result.data); // 연결
     }
 
     @Test
@@ -152,13 +156,13 @@ class StreamMergerTest {
       merger.applyDelta(delta1);
 
       TypedItem delta2 = new TypedItem();
-      delta2.type = "tool";  // @StreamOverwrite로 덮어쓰기
+      delta2.type = "tool"; // @StreamOverwrite로 덮어쓰기
       delta2.name = "_weather";
       merger.applyDelta(delta2);
 
       TypedItem result = merger.build();
-      assertEquals("tool", result.type);  // 덮어쓰기됨
-      assertEquals("get_weather", result.name);  // String은 연결
+      assertEquals("tool", result.type); // 덮어쓰기됨
+      assertEquals("get_weather", result.name); // String은 연결
     }
 
     @Test
@@ -172,20 +176,19 @@ class StreamMergerTest {
       merger.applyDelta(delta1);
 
       TypedItem delta2 = new TypedItem();
-      delta2.type = null;  // null → 기존 값 유지
+      delta2.type = null; // null → 기존 값 유지
       delta2.name = "_weather";
       merger.applyDelta(delta2);
 
       TypedItem result = merger.build();
-      assertEquals("function", result.type);  // null이므로 기존 값 유지
+      assertEquals("function", result.type); // null이므로 기존 값 유지
       assertEquals("get_weather", result.name);
     }
 
     @Test
     void shouldReplaceStreamOverwriteListField() {
       // @StreamOverwrite가 List 필드에 있으면 병합 없이 전체 덮어쓰기
-      StreamMerger<OverwriteListContainer> merger =
-          new StreamMerger<>(OverwriteListContainer.class);
+      StreamMerger<OverwriteListContainer> merger = new StreamMerger<>(OverwriteListContainer.class);
 
       // 첫 번째 델타: tags = ["a", "b"]
       OverwriteListContainer delta1 = new OverwriteListContainer();
@@ -206,8 +209,7 @@ class StreamMergerTest {
     @Test
     void shouldReplaceStreamOverwriteObjectListField() {
       // @StreamOverwrite가 객체 List 필드에 있으면 index 기반 병합 없이 전체 덮어쓰기
-      StreamMerger<OverwriteObjectListContainer> merger =
-          new StreamMerger<>(OverwriteObjectListContainer.class);
+      StreamMerger<OverwriteObjectListContainer> merger = new StreamMerger<>(OverwriteObjectListContainer.class);
 
       // 첫 번째 델타: items = [{index:0, value:"first"}]
       OverwriteObjectListContainer delta1 = new OverwriteObjectListContainer();
@@ -232,7 +234,7 @@ class StreamMergerTest {
       // @StreamOverwrite이므로 두 번째 델타로 전체 대체됨
       assertEquals(1, result.items.size());
       assertEquals(0, result.items.get(0).index);
-      assertEquals("second", result.items.get(0).value);  // 병합 없음, 덮어쓰기
+      assertEquals("second", result.items.get(0).value); // 병합 없음, 덮어쓰기
     }
 
     @Test
@@ -280,15 +282,15 @@ class StreamMergerTest {
       merger.applyDelta(delta1);
 
       PrimitiveDto delta2 = new PrimitiveDto();
-      delta2.setAge(5);       // 덮어쓰기 (합산 X)
-      delta2.setScore(1.5);   // 덮어쓰기 (합산 X)
+      delta2.setAge(5); // 덮어쓰기 (합산 X)
+      delta2.setScore(1.5); // 덮어쓰기 (합산 X)
       delta2.setActive(false);
       merger.applyDelta(delta2);
 
       PrimitiveDto result = merger.build();
-      assertEquals(5, result.getAge());             // 덮어쓰기됨
-      assertEquals(1.5, result.getScore(), 0.001);  // 덮어쓰기됨
-      assertFalse(result.isActive());               // 덮어쓰기됨
+      assertEquals(5, result.getAge()); // 덮어쓰기됨
+      assertEquals(1.5, result.getScore(), 0.001); // 덮어쓰기됨
+      assertFalse(result.isActive()); // 덮어쓰기됨
     }
   }
 
@@ -419,8 +421,8 @@ class StreamMergerTest {
       // index 0: "He" + "llo" + "!" = "Hello!"
       // index 1: "Wo" + "rld" = "World"
       // index 2: "테" + "스" + "트" = "테스트"
-      int[] indices =  {0,    1,    2,    0,     1,     2,   0,   2};
-      String[] values = {"He", "Wo", "테", "llo", "rld", "스", "!", "트"};
+      int[] indices = { 0, 1, 2, 0, 1, 2, 0, 2 };
+      String[] values = { "He", "Wo", "테", "llo", "rld", "스", "!", "트" };
 
       for (int i = 0; i < indices.length; i++) {
         ListContainer delta = new ListContainer();
@@ -484,7 +486,7 @@ class StreamMergerTest {
       ListContainer result = merger.build();
       assertEquals(3, result.items.size());
       assertEquals("Hello!", result.items.get(0).value);
-      assertEquals("World", result.items.get(1).value);  // 변경 없음
+      assertEquals("World", result.items.get(1).value); // 변경 없음
       assertEquals("Testing", result.items.get(2).value);
     }
   }
@@ -552,8 +554,7 @@ class StreamMergerTest {
     @Test
     void shouldUseNestedCustomMergeMethod() {
       // 중첩된 객체 필드에서 customMerge 사용
-      StreamMerger<NestedCustomMergeContainer> merger =
-          new StreamMerger<>(NestedCustomMergeContainer.class);
+      StreamMerger<NestedCustomMergeContainer> merger = new StreamMerger<>(NestedCustomMergeContainer.class);
 
       NestedCustomMergeContainer delta1 = new NestedCustomMergeContainer();
       delta1.name = "Container";
@@ -561,8 +562,8 @@ class StreamMergerTest {
       merger.applyDelta(delta1);
 
       NestedCustomMergeContainer delta2 = new NestedCustomMergeContainer();
-      delta2.name = " One";  // String 연결
-      delta2.chunk = new CustomChunk(" world");  // customMerge 호출
+      delta2.name = " One"; // String 연결
+      delta2.chunk = new CustomChunk(" world"); // customMerge 호출
       merger.applyDelta(delta2);
 
       NestedCustomMergeContainer result = merger.build();
@@ -573,8 +574,7 @@ class StreamMergerTest {
     @Test
     void shouldUseCustomMergeInList() {
       // List 요소에서 customMerge 사용
-      StreamMerger<CustomMergeListContainer> merger =
-          new StreamMerger<>(CustomMergeListContainer.class);
+      StreamMerger<CustomMergeListContainer> merger = new StreamMerger<>(CustomMergeListContainer.class);
 
       CustomMergeListContainer delta1 = new CustomMergeListContainer();
       delta1.items = new ArrayList<>();
@@ -583,8 +583,8 @@ class StreamMergerTest {
 
       CustomMergeListContainer delta2 = new CustomMergeListContainer();
       delta2.items = new ArrayList<>();
-      delta2.items.add(new IndexedCustomChunk(0, " world"));  // 같은 index → merge() 호출
-      delta2.items.add(new IndexedCustomChunk(1, "New"));     // 새 index
+      delta2.items.add(new IndexedCustomChunk(0, " world")); // 같은 index → merge() 호출
+      delta2.items.add(new IndexedCustomChunk(1, "New")); // 새 index
       merger.applyDelta(delta2);
 
       CustomMergeListContainer result = merger.build();
@@ -599,8 +599,7 @@ class StreamMergerTest {
 
     @Test
     void shouldAssembleTextResponse() {
-      StreamMerger<ChatCompletionChunk> merger =
-          new StreamMerger<>(ChatCompletionChunk.class);
+      StreamMerger<ChatCompletionChunk> merger = new StreamMerger<>(ChatCompletionChunk.class);
 
       // Chunk 1: metadata + role
       ChatCompletionChunk chunk1 = new ChatCompletionChunk();
@@ -644,8 +643,7 @@ class StreamMergerTest {
 
     @Test
     void shouldAssembleToolCallResponse() {
-      StreamMerger<ChatCompletionChunk> merger =
-          new StreamMerger<>(ChatCompletionChunk.class);
+      StreamMerger<ChatCompletionChunk> merger = new StreamMerger<>(ChatCompletionChunk.class);
 
       // Chunk 1: tool call start
       ChatCompletionChunk chunk1 = new ChatCompletionChunk();
@@ -707,8 +705,7 @@ class StreamMergerTest {
 
     @Test
     void shouldAssembleMultipleToolCalls() {
-      StreamMerger<ChatCompletionChunk> merger =
-          new StreamMerger<>(ChatCompletionChunk.class);
+      StreamMerger<ChatCompletionChunk> merger = new StreamMerger<>(ChatCompletionChunk.class);
 
       // Chunk 1: first tool call
       ChatCompletionChunk chunk1 = new ChatCompletionChunk();
@@ -790,8 +787,7 @@ class StreamMergerTest {
     @Test
     void shouldSupportPrimitiveIntIndex() {
       // @StreamIndex가 int (primitive) 타입에서 동작하는지 확인
-      StreamMerger<ListWithPrimitiveIndex> merger =
-          new StreamMerger<>(ListWithPrimitiveIndex.class);
+      StreamMerger<ListWithPrimitiveIndex> merger = new StreamMerger<>(ListWithPrimitiveIndex.class);
 
       ListWithPrimitiveIndex delta1 = new ListWithPrimitiveIndex();
       delta1.items = new ArrayList<>();
@@ -819,8 +815,7 @@ class StreamMergerTest {
     void shouldAppendWhenStringIndexField() {
       // @StreamIndex가 String 필드에 붙어있으면 무시됨 (int/Integer만 지원)
       // index 필드가 없는 것으로 처리되어 append 동작
-      StreamMerger<ListWithStringIndex> merger =
-          new StreamMerger<>(ListWithStringIndex.class);
+      StreamMerger<ListWithStringIndex> merger = new StreamMerger<>(ListWithStringIndex.class);
 
       ListWithStringIndex delta1 = new ListWithStringIndex();
       delta1.items = new ArrayList<>();
@@ -849,8 +844,7 @@ class StreamMergerTest {
     void shouldAppendWhenStringFieldNamedIndex() {
       // "index"라는 이름이지만 String 타입이면 무시됨 (int/Integer만 지원)
       // index 필드가 없는 것으로 처리되어 append 동작
-      StreamMerger<ListWithStringNamedIndex> merger =
-          new StreamMerger<>(ListWithStringNamedIndex.class);
+      StreamMerger<ListWithStringNamedIndex> merger = new StreamMerger<>(ListWithStringNamedIndex.class);
 
       ListWithStringNamedIndex delta1 = new ListWithStringNamedIndex();
       delta1.items = new ArrayList<>();
@@ -878,8 +872,7 @@ class StreamMergerTest {
     @Test
     void shouldAppendWhenNoIndexField() {
       // index 필드가 없는 객체 리스트는 append 동작
-      StreamMerger<BadListContainer> merger =
-          new StreamMerger<>(BadListContainer.class);
+      StreamMerger<BadListContainer> merger = new StreamMerger<>(BadListContainer.class);
 
       BadListContainer delta1 = new BadListContainer();
       delta1.items = new ArrayList<>();
@@ -908,8 +901,7 @@ class StreamMergerTest {
 
     @Test
     void shouldThrowOnNullType() {
-      assertThrows(IllegalArgumentException.class, () ->
-          new StreamMerger<>(null));
+      assertThrows(IllegalArgumentException.class, () -> new StreamMerger<>(null));
     }
   }
 
@@ -923,8 +915,7 @@ class StreamMergerTest {
     @Test
     void shouldUseStreamListValueAttribute() {
       // @StreamList(index = "seq")로 인덱스 필드 지정
-      StreamMerger<StreamListContainer> merger =
-          new StreamMerger<>(StreamListContainer.class);
+      StreamMerger<StreamListContainer> merger = new StreamMerger<>(StreamListContainer.class);
 
       StreamListContainer delta1 = new StreamListContainer();
       delta1.items = new ArrayList<>();
@@ -951,8 +942,7 @@ class StreamMergerTest {
     @Test
     void shouldUseStreamListIndexAttribute() {
       // @StreamList(index = "seq")로 인덱스 필드 지정
-      StreamMerger<StreamListIndexAttrContainer> merger =
-          new StreamMerger<>(StreamListIndexAttrContainer.class);
+      StreamMerger<StreamListIndexAttrContainer> merger = new StreamMerger<>(StreamListIndexAttrContainer.class);
 
       StreamListIndexAttrContainer delta1 = new StreamListIndexAttrContainer();
       delta1.items = new ArrayList<>();
@@ -978,8 +968,7 @@ class StreamMergerTest {
     @Test
     void shouldAppendWhenStreamListFieldNotExists() {
       // @StreamList(index = "nonExistent")로 존재하지 않는 필드 지정 → append
-      StreamMerger<StreamListInvalidFieldContainer> merger =
-          new StreamMerger<>(StreamListInvalidFieldContainer.class);
+      StreamMerger<StreamListInvalidFieldContainer> merger = new StreamMerger<>(StreamListInvalidFieldContainer.class);
 
       StreamListInvalidFieldContainer delta1 = new StreamListInvalidFieldContainer();
       delta1.items = new ArrayList<>();
@@ -1007,8 +996,7 @@ class StreamMergerTest {
     @Test
     void shouldAppendWhenStreamListFieldIsNotInteger() {
       // @StreamList(index = "seq")로 String 타입 필드 지정 → append
-      StreamMerger<StreamListStringFieldContainer> merger =
-          new StreamMerger<>(StreamListStringFieldContainer.class);
+      StreamMerger<StreamListStringFieldContainer> merger = new StreamMerger<>(StreamListStringFieldContainer.class);
 
       StreamListStringFieldContainer delta1 = new StreamListStringFieldContainer();
       delta1.items = new ArrayList<>();
@@ -1037,15 +1025,14 @@ class StreamMergerTest {
     void shouldOverrideStreamIndexWithStreamList() {
       // @StreamList(index = "customIdx")가 요소 클래스의 @StreamIndex보다 우선
       // customIdx 값이 리스트 위치로 사용됨
-      StreamMerger<StreamListOverrideContainer> merger =
-          new StreamMerger<>(StreamListOverrideContainer.class);
+      StreamMerger<StreamListOverrideContainer> merger = new StreamMerger<>(StreamListOverrideContainer.class);
 
       // 첫 번째 델타: index=0, customIdx=1
       StreamListOverrideContainer delta1 = new StreamListOverrideContainer();
       delta1.items = new ArrayList<>();
       ItemWithStreamIndex item1 = new ItemWithStreamIndex();
       item1.index = 0;
-      item1.customIdx = 1;  // @StreamList가 사용할 인덱스 → 리스트 위치 1
+      item1.customIdx = 1; // @StreamList가 사용할 인덱스 → 리스트 위치 1
       item1.value = "Custom";
       delta1.items.add(item1);
       merger.applyDelta(delta1);
@@ -1064,8 +1051,8 @@ class StreamMergerTest {
       StreamListOverrideContainer delta3 = new StreamListOverrideContainer();
       delta3.items = new ArrayList<>();
       ItemWithStreamIndex item3 = new ItemWithStreamIndex();
-      item3.index = 0;  // @StreamIndex라면 위치 0에서 병합되어야 함
-      item3.customIdx = 2;  // @StreamList로 인해 위치 2에 새 아이템
+      item3.index = 0; // @StreamIndex라면 위치 0에서 병합되어야 함
+      item3.customIdx = 2; // @StreamList로 인해 위치 2에 새 아이템
       item3.value = "New";
       delta3.items.add(item3);
       merger.applyDelta(delta3);
@@ -1093,15 +1080,14 @@ class StreamMergerTest {
     @Test
     void shouldAppendStringArray() {
       // String[] 배열 append 병합
-      StreamMerger<StringArrayContainer> merger =
-          new StreamMerger<>(StringArrayContainer.class);
+      StreamMerger<StringArrayContainer> merger = new StreamMerger<>(StringArrayContainer.class);
 
       StringArrayContainer delta1 = new StringArrayContainer();
-      delta1.tags = new String[]{"a", "b"};
+      delta1.tags = new String[] { "a", "b" };
       merger.applyDelta(delta1);
 
       StringArrayContainer delta2 = new StringArrayContainer();
-      delta2.tags = new String[]{"c"};
+      delta2.tags = new String[] { "c" };
       merger.applyDelta(delta2);
 
       StringArrayContainer result = merger.build();
@@ -1114,15 +1100,14 @@ class StreamMergerTest {
     @Test
     void shouldAppendPrimitiveIntArray() {
       // int[] primitive 배열 append 병합
-      StreamMerger<IntArrayContainer> merger =
-          new StreamMerger<>(IntArrayContainer.class);
+      StreamMerger<IntArrayContainer> merger = new StreamMerger<>(IntArrayContainer.class);
 
       IntArrayContainer delta1 = new IntArrayContainer();
-      delta1.numbers = new int[]{1, 2};
+      delta1.numbers = new int[] { 1, 2 };
       merger.applyDelta(delta1);
 
       IntArrayContainer delta2 = new IntArrayContainer();
-      delta2.numbers = new int[]{3, 4};
+      delta2.numbers = new int[] { 3, 4 };
       merger.applyDelta(delta2);
 
       IntArrayContainer result = merger.build();
@@ -1136,21 +1121,20 @@ class StreamMergerTest {
     @Test
     void shouldMergeObjectArrayByIndex() {
       // @StreamIndex 객체 배열 index 기반 병합
-      StreamMerger<ObjectArrayContainer> merger =
-          new StreamMerger<>(ObjectArrayContainer.class);
+      StreamMerger<ObjectArrayContainer> merger = new StreamMerger<>(ObjectArrayContainer.class);
 
       ObjectArrayContainer delta1 = new ObjectArrayContainer();
       IndexedItem item1 = new IndexedItem();
       item1.index = 0;
       item1.value = "Hello";
-      delta1.items = new IndexedItem[]{item1};
+      delta1.items = new IndexedItem[] { item1 };
       merger.applyDelta(delta1);
 
       ObjectArrayContainer delta2 = new ObjectArrayContainer();
       IndexedItem item2 = new IndexedItem();
       item2.index = 0;
       item2.value = " world";
-      delta2.items = new IndexedItem[]{item2};
+      delta2.items = new IndexedItem[] { item2 };
       merger.applyDelta(delta2);
 
       ObjectArrayContainer result = merger.build();
@@ -1162,21 +1146,20 @@ class StreamMergerTest {
     @Test
     void shouldUseStreamListWithArray() {
       // @StreamList(index = "seq")로 배열 인덱스 필드 지정
-      StreamMerger<StreamListArrayContainer> merger =
-          new StreamMerger<>(StreamListArrayContainer.class);
+      StreamMerger<StreamListArrayContainer> merger = new StreamMerger<>(StreamListArrayContainer.class);
 
       StreamListArrayContainer delta1 = new StreamListArrayContainer();
       ExternalItem item1 = new ExternalItem();
       item1.seq = 0;
       item1.content = "First";
-      delta1.items = new ExternalItem[]{item1};
+      delta1.items = new ExternalItem[] { item1 };
       merger.applyDelta(delta1);
 
       StreamListArrayContainer delta2 = new StreamListArrayContainer();
       ExternalItem item2 = new ExternalItem();
       item2.seq = 0;
       item2.content = " Second";
-      delta2.items = new ExternalItem[]{item2};
+      delta2.items = new ExternalItem[] { item2 };
       merger.applyDelta(delta2);
 
       StreamListArrayContainer result = merger.build();
@@ -1188,15 +1171,14 @@ class StreamMergerTest {
     @Test
     void shouldOverwriteArrayWithStreamOverwrite() {
       // @StreamOverwrite 배열 전체 덮어쓰기
-      StreamMerger<OverwriteArrayContainer> merger =
-          new StreamMerger<>(OverwriteArrayContainer.class);
+      StreamMerger<OverwriteArrayContainer> merger = new StreamMerger<>(OverwriteArrayContainer.class);
 
       OverwriteArrayContainer delta1 = new OverwriteArrayContainer();
-      delta1.tags = new String[]{"a", "b"};
+      delta1.tags = new String[] { "a", "b" };
       merger.applyDelta(delta1);
 
       OverwriteArrayContainer delta2 = new OverwriteArrayContainer();
-      delta2.tags = new String[]{"c"};
+      delta2.tags = new String[] { "c" };
       merger.applyDelta(delta2);
 
       OverwriteArrayContainer result = merger.build();
@@ -1208,19 +1190,18 @@ class StreamMergerTest {
     @Test
     void shouldAppendNoIndexObjectArray() {
       // index 없는 객체 배열 append 병합
-      StreamMerger<NoIndexArrayContainer> merger =
-          new StreamMerger<>(NoIndexArrayContainer.class);
+      StreamMerger<NoIndexArrayContainer> merger = new StreamMerger<>(NoIndexArrayContainer.class);
 
       NoIndexArrayContainer delta1 = new NoIndexArrayContainer();
       NoIndexItem item1 = new NoIndexItem();
       item1.value = "first";
-      delta1.items = new NoIndexItem[]{item1};
+      delta1.items = new NoIndexItem[] { item1 };
       merger.applyDelta(delta1);
 
       NoIndexArrayContainer delta2 = new NoIndexArrayContainer();
       NoIndexItem item2 = new NoIndexItem();
       item2.value = "second";
-      delta2.items = new NoIndexItem[]{item2};
+      delta2.items = new NoIndexItem[] { item2 };
       merger.applyDelta(delta2);
 
       NoIndexArrayContainer result = merger.build();
@@ -1233,21 +1214,20 @@ class StreamMergerTest {
     @Test
     void shouldSupportArrayInRecord() {
       // Record + 배열 필드 지원
-      StreamMerger<ArrayRecord> merger =
-          new StreamMerger<>(ArrayRecord.class);
+      StreamMerger<ArrayRecord> merger = new StreamMerger<>(ArrayRecord.class);
 
       IndexedItem item1 = new IndexedItem();
       item1.index = 0;
       item1.value = "Hello";
 
-      ArrayRecord delta1 = new ArrayRecord("id1", new String[]{"tag1"}, new IndexedItem[]{item1});
+      ArrayRecord delta1 = new ArrayRecord("id1", new String[] { "tag1" }, new IndexedItem[] { item1 });
       merger.applyDelta(delta1);
 
       IndexedItem item2 = new IndexedItem();
       item2.index = 0;
       item2.value = " world";
 
-      ArrayRecord delta2 = new ArrayRecord(null, new String[]{"tag2"}, new IndexedItem[]{item2});
+      ArrayRecord delta2 = new ArrayRecord(null, new String[] { "tag2" }, new IndexedItem[] { item2 });
       merger.applyDelta(delta2);
 
       ArrayRecord result = merger.build();
@@ -1270,8 +1250,7 @@ class StreamMergerTest {
     @Test
     void shouldConcatStringValueMapByKey() {
       // String value Map: 기존 키는 연결(concat)
-      StreamMerger<PrimitiveMapContainer> merger =
-          new StreamMerger<>(PrimitiveMapContainer.class);
+      StreamMerger<PrimitiveMapContainer> merger = new StreamMerger<>(PrimitiveMapContainer.class);
 
       PrimitiveMapContainer delta1 = new PrimitiveMapContainer();
       delta1.metadata = new HashMap<>();
@@ -1281,22 +1260,21 @@ class StreamMergerTest {
 
       PrimitiveMapContainer delta2 = new PrimitiveMapContainer();
       delta2.metadata = new HashMap<>();
-      delta2.metadata.put("key2", "!");       // 기존 키: 연결
-      delta2.metadata.put("key3", "New");     // 새 키: 추가
+      delta2.metadata.put("key2", "!"); // 기존 키: 연결
+      delta2.metadata.put("key3", "New"); // 새 키: 추가
       merger.applyDelta(delta2);
 
       PrimitiveMapContainer result = merger.build();
       assertEquals(3, result.metadata.size());
-      assertEquals("Hello", result.metadata.get("key1"));   // 유지
-      assertEquals("World!", result.metadata.get("key2"));  // 연결됨
-      assertEquals("New", result.metadata.get("key3"));     // 추가
+      assertEquals("Hello", result.metadata.get("key1")); // 유지
+      assertEquals("World!", result.metadata.get("key2")); // 연결됨
+      assertEquals("New", result.metadata.get("key3")); // 추가
     }
 
     @Test
     void shouldSumIntegerValueMapByKey() {
       // Integer value Map: 기존 키는 합산
-      StreamMerger<IntegerMapContainer> merger =
-          new StreamMerger<>(IntegerMapContainer.class);
+      StreamMerger<IntegerMapContainer> merger = new StreamMerger<>(IntegerMapContainer.class);
 
       IntegerMapContainer delta1 = new IntegerMapContainer();
       delta1.counts = new HashMap<>();
@@ -1306,22 +1284,21 @@ class StreamMergerTest {
 
       IntegerMapContainer delta2 = new IntegerMapContainer();
       delta2.counts = new HashMap<>();
-      delta2.counts.put("b", 30);  // 기존 키: 합산
-      delta2.counts.put("c", 40);  // 새 키: 추가
+      delta2.counts.put("b", 30); // 기존 키: 합산
+      delta2.counts.put("c", 40); // 새 키: 추가
       merger.applyDelta(delta2);
 
       IntegerMapContainer result = merger.build();
       assertEquals(3, result.counts.size());
-      assertEquals(10, result.counts.get("a"));  // 유지
-      assertEquals(50, result.counts.get("b"));  // 합산됨 (20 + 30)
-      assertEquals(40, result.counts.get("c"));  // 추가
+      assertEquals(10, result.counts.get("a")); // 유지
+      assertEquals(50, result.counts.get("b")); // 합산됨 (20 + 30)
+      assertEquals(40, result.counts.get("c")); // 추가
     }
 
     @Test
     void shouldMergeObjectValueMapRecursively() {
       // 객체 value Map의 재귀적 병합
-      StreamMerger<ObjectMapContainer> merger =
-          new StreamMerger<>(ObjectMapContainer.class);
+      StreamMerger<ObjectMapContainer> merger = new StreamMerger<>(ObjectMapContainer.class);
 
       ObjectMapContainer delta1 = new ObjectMapContainer();
       delta1.items = new HashMap<>();
@@ -1334,12 +1311,12 @@ class StreamMergerTest {
       ObjectMapContainer delta2 = new ObjectMapContainer();
       delta2.items = new HashMap<>();
       SimpleDto item2 = new SimpleDto();
-      item2.content = " world";  // 기존 키의 content 연결
-      item2.count = 5;           // 기존 키의 count 합산
+      item2.content = " world"; // 기존 키의 content 연결
+      item2.count = 5; // 기존 키의 count 합산
       delta2.items.put("item1", item2);
       SimpleDto newItem = new SimpleDto();
       newItem.content = "New";
-      delta2.items.put("item2", newItem);  // 새 키 추가
+      delta2.items.put("item2", newItem); // 새 키 추가
       merger.applyDelta(delta2);
 
       ObjectMapContainer result = merger.build();
@@ -1352,8 +1329,7 @@ class StreamMergerTest {
     @Test
     void shouldOverwriteMapWithStreamOverwrite() {
       // @StreamOverwrite Map 전체 덮어쓰기
-      StreamMerger<OverwriteMapContainer> merger =
-          new StreamMerger<>(OverwriteMapContainer.class);
+      StreamMerger<OverwriteMapContainer> merger = new StreamMerger<>(OverwriteMapContainer.class);
 
       OverwriteMapContainer delta1 = new OverwriteMapContainer();
       delta1.config = new HashMap<>();
@@ -1363,7 +1339,7 @@ class StreamMergerTest {
 
       OverwriteMapContainer delta2 = new OverwriteMapContainer();
       delta2.config = new HashMap<>();
-      delta2.config.put("key3", "value3");  // 전체 덮어쓰기
+      delta2.config.put("key3", "value3"); // 전체 덮어쓰기
       merger.applyDelta(delta2);
 
       OverwriteMapContainer result = merger.build();
@@ -1377,8 +1353,7 @@ class StreamMergerTest {
     @Test
     void shouldMergeNestedObjectValueMap() {
       // 중첩된 객체 value Map의 재귀적 병합
-      StreamMerger<NestedObjectMapContainer> merger =
-          new StreamMerger<>(NestedObjectMapContainer.class);
+      StreamMerger<NestedObjectMapContainer> merger = new StreamMerger<>(NestedObjectMapContainer.class);
 
       NestedObjectMapContainer delta1 = new NestedObjectMapContainer();
       delta1.items = new HashMap<>();
@@ -1392,9 +1367,9 @@ class StreamMergerTest {
       NestedObjectMapContainer delta2 = new NestedObjectMapContainer();
       delta2.items = new HashMap<>();
       NestedMapItem item2 = new NestedMapItem();
-      item2.name = " One";  // String 연결
+      item2.name = " One"; // String 연결
       item2.nested = new SimpleDto();
-      item2.nested.content = " world";  // nested의 content도 연결
+      item2.nested.content = " world"; // nested의 content도 연결
       delta2.items.put("key1", item2);
       merger.applyDelta(delta2);
 
@@ -1407,8 +1382,7 @@ class StreamMergerTest {
     @Test
     void shouldHandleEmptyMap() {
       // 빈 Map 처리
-      StreamMerger<PrimitiveMapContainer> merger =
-          new StreamMerger<>(PrimitiveMapContainer.class);
+      StreamMerger<PrimitiveMapContainer> merger = new StreamMerger<>(PrimitiveMapContainer.class);
 
       PrimitiveMapContainer delta1 = new PrimitiveMapContainer();
       delta1.metadata = new HashMap<>();
@@ -1416,12 +1390,12 @@ class StreamMergerTest {
       merger.applyDelta(delta1);
 
       PrimitiveMapContainer delta2 = new PrimitiveMapContainer();
-      delta2.metadata = new HashMap<>();  // 빈 Map
+      delta2.metadata = new HashMap<>(); // 빈 Map
       merger.applyDelta(delta2);
 
       PrimitiveMapContainer result = merger.build();
       assertEquals(1, result.metadata.size());
-      assertEquals("value1", result.metadata.get("key1"));  // 유지됨
+      assertEquals("value1", result.metadata.get("key1")); // 유지됨
     }
   }
 
@@ -1480,8 +1454,7 @@ class StreamMergerTest {
     @Test
     void shouldHandleMultipleLevelInheritance() {
       // ExtendedCitedResponse extends CitedResponse extends BaseResponse<CitedMessage>
-      StreamMerger<ExtendedCitedResponse> merger =
-          new StreamMerger<>(ExtendedCitedResponse.class);
+      StreamMerger<ExtendedCitedResponse> merger = new StreamMerger<>(ExtendedCitedResponse.class);
 
       ExtendedCitedResponse delta1 = new ExtendedCitedResponse();
       delta1.id = "ext_1";
@@ -1506,8 +1479,7 @@ class StreamMergerTest {
     @Test
     void shouldHandleMultipleTypeParameters() {
       // MultiTypeResponse extends BaseMultiResponse<KeyItem, ValueItem>
-      StreamMerger<MultiTypeResponse> merger =
-          new StreamMerger<>(MultiTypeResponse.class);
+      StreamMerger<MultiTypeResponse> merger = new StreamMerger<>(MultiTypeResponse.class);
 
       MultiTypeResponse delta1 = new MultiTypeResponse();
       delta1.keys = new ArrayList<>();
@@ -1532,12 +1504,12 @@ class StreamMergerTest {
 
       KeyItem key2 = new KeyItem();
       key2.index = 0;
-      key2.keyName = "Name";  // String concatenation
+      key2.keyName = "Name"; // String concatenation
       delta2.keys.add(key2);
 
       ValueItem val2 = new ValueItem();
       val2.index = 0;
-      val2.data = "Value";  // String concatenation
+      val2.data = "Value"; // String concatenation
       delta2.values.add(val2);
 
       merger.applyDelta(delta2);
@@ -1552,7 +1524,8 @@ class StreamMergerTest {
 
   // Test DTOs
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class SimpleDto {
     String content;
     Integer count;
@@ -1563,51 +1536,60 @@ class StreamMergerTest {
    * primitive 타입 필드 테스트용 DTO.
    * int, double, boolean 등 primitive 타입 사용.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class PrimitiveDto {
     int age;
     double score;
     boolean active;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class IndexedItem {
     @StreamIndex
     Integer index;
     String value;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class TypedItem {
     @StreamOverwrite
     String type;
     String name;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class Parent {
     String id;
     SimpleDto child;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class GrandParent {
     String name;
     Parent parent;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ListContainer {
     List<String> tags;
     List<IndexedItem> items;
   }
 
-  public record SimpleRecord(String content, Integer count) {}
+  public record SimpleRecord(String content, Integer count) {
+  }
 
-  public record ParentRecord(String id, SimpleRecord child) {}
+  public record ParentRecord(String id, SimpleRecord child) {
+  }
 
   // Custom merge method test class
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class CustomChunk {
     private String content;
 
@@ -1628,7 +1610,8 @@ class StreamMergerTest {
   /**
    * 중첩된 customMerge 테스트용 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class NestedCustomMergeContainer {
     String name;
     CustomChunk chunk;
@@ -1637,7 +1620,8 @@ class StreamMergerTest {
   /**
    * index가 있는 customMerge 객체.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class IndexedCustomChunk {
     @StreamIndex
     private int index;
@@ -1661,20 +1645,23 @@ class StreamMergerTest {
   /**
    * customMerge 객체 List 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class CustomMergeListContainer {
     List<IndexedCustomChunk> items;
   }
 
   // OpenAI-like DTOs
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ChatCompletionChunk {
     String id;
     List<Choice> choices;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class Choice {
     @StreamIndex
     Integer index;
@@ -1682,14 +1669,16 @@ class StreamMergerTest {
     Delta delta;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class Delta {
     String role;
     String content;
     List<ToolCall> toolCalls;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ToolCall {
     @StreamIndex
     Integer index;
@@ -1698,7 +1687,8 @@ class StreamMergerTest {
     FunctionCall function;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class FunctionCall {
     String name;
     String arguments;
@@ -1706,24 +1696,28 @@ class StreamMergerTest {
 
   // Bad DTOs for exception testing
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class BadListContainer {
     List<NoIndexItem> items;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class NoIndexItem {
     String value;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class NumberDto {
     Double price;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ConventionIndexItem {
-    Integer index;  // @StreamIndex 없이 "index" 이름만으로 자동 인식
+    Integer index; // @StreamIndex 없이 "index" 이름만으로 자동 인식
     String data;
   }
 
@@ -1733,7 +1727,8 @@ class StreamMergerTest {
    * 제네릭 베이스 응답 클래스.
    * T는 메시지 타입을 나타낸다.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class BaseResponse<T> {
     String id;
     List<GenericChoice<T>> choices;
@@ -1743,7 +1738,8 @@ class StreamMergerTest {
    * 제네릭 Choice 클래스.
    * T는 메시지 타입을 나타낸다.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class GenericChoice<T> {
     @StreamIndex
     Integer index;
@@ -1753,7 +1749,8 @@ class StreamMergerTest {
   /**
    * 인용 정보가 포함된 메시지.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class CitedMessage {
     String content;
     String citation;
@@ -1763,7 +1760,8 @@ class StreamMergerTest {
    * CitedMessage를 사용하는 구체적인 응답 클래스.
    * BaseResponse<CitedMessage>를 상속.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class CitedResponse extends BaseResponse<CitedMessage> {
     // choices는 List<GenericChoice<CitedMessage>>가 됨
   }
@@ -1771,7 +1769,8 @@ class StreamMergerTest {
   /**
    * 다중 레벨 상속 테스트용 클래스.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ExtendedCitedResponse extends CitedResponse {
     String metadata;
   }
@@ -1779,7 +1778,8 @@ class StreamMergerTest {
   /**
    * 다중 타입 파라미터를 가진 베이스 클래스.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class BaseMultiResponse<K, V> {
     List<K> keys;
     List<V> values;
@@ -1788,7 +1788,8 @@ class StreamMergerTest {
   /**
    * 키 아이템.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class KeyItem {
     @StreamIndex
     Integer index;
@@ -1798,7 +1799,8 @@ class StreamMergerTest {
   /**
    * 값 아이템.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ValueItem {
     @StreamIndex
     Integer index;
@@ -1808,7 +1810,8 @@ class StreamMergerTest {
   /**
    * 다중 타입 파라미터를 사용하는 구체적인 응답 클래스.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class MultiTypeResponse extends BaseMultiResponse<KeyItem, ValueItem> {
     // keys는 List<KeyItem>, values는 List<ValueItem>이 됨
   }
@@ -1818,30 +1821,33 @@ class StreamMergerTest {
   /**
    * primitive int 인덱스를 가진 아이템.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class PrimitiveIntIndexItem {
     @StreamIndex
     int idx;
     String value;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ListWithPrimitiveIndex {
     List<PrimitiveIntIndexItem> items;
   }
 
-
   /**
    * String 인덱스를 가진 아이템 (지원되지 않는 타입, append로 동작).
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class StringIndexItem {
     @StreamIndex
     String idx;
     String value;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ListWithStringIndex {
     List<StringIndexItem> items;
   }
@@ -1850,13 +1856,15 @@ class StreamMergerTest {
    * "index"라는 이름의 String 필드를 가진 아이템.
    * int/Integer가 아니므로 index 필드로 인식되지 않음 → append로 동작.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class StringNamedIndexItem {
-    String index;  // "index" 이름이지만 String 타입
+    String index; // "index" 이름이지만 String 타입
     String value;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ListWithStringNamedIndex {
     List<StringNamedIndexItem> items;
   }
@@ -1867,16 +1875,18 @@ class StreamMergerTest {
    * @StreamList 없이 index 필드도 없는 아이템.
    * 이 아이템은 @StreamList로 외부에서 인덱스 필드를 지정해야 한다.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ExternalItem {
-    int seq;  // @StreamIndex 없음, "index" 이름도 아님
+    int seq; // @StreamIndex 없음, "index" 이름도 아님
     String content;
   }
 
   /**
    * @StreamList(index = "seq")로 인덱스 필드를 지정하는 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class StreamListContainer {
     @StreamList(index = "seq")
     List<ExternalItem> items;
@@ -1886,7 +1896,8 @@ class StreamMergerTest {
    * @StreamList(index = "seq")로 인덱스 필드를 지정하는 컨테이너.
    * index 속성 사용 테스트.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class StreamListIndexAttrContainer {
     @StreamList(index = "seq")
     List<ExternalItem> items;
@@ -1896,7 +1907,8 @@ class StreamMergerTest {
    * @StreamList로 존재하지 않는 필드를 지정한 경우.
    * append 동작으로 폴백.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class StreamListInvalidFieldContainer {
     @StreamList(index = "nonExistent")
     List<ExternalItem> items;
@@ -1906,13 +1918,15 @@ class StreamMergerTest {
    * @StreamList로 String 타입 필드를 지정한 경우.
    * int/Integer가 아니므로 무시되고 append 동작.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class StreamListStringFieldItem {
-    String seq;  // String 타입
+    String seq; // String 타입
     String content;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class StreamListStringFieldContainer {
     @StreamList(index = "seq")
     List<StreamListStringFieldItem> items;
@@ -1921,17 +1935,19 @@ class StreamMergerTest {
   /**
    * @StreamList가 요소 클래스의 @StreamIndex보다 우선하는지 테스트.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ItemWithStreamIndex {
     @StreamIndex
-    Integer index;  // 요소 클래스에 정의된 인덱스
-    int customIdx;  // @StreamList로 지정할 다른 인덱스
+    Integer index; // 요소 클래스에 정의된 인덱스
+    int customIdx; // @StreamList로 지정할 다른 인덱스
     String value;
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class StreamListOverrideContainer {
-    @StreamList(index = "customIdx")  // @StreamIndex보다 우선
+    @StreamList(index = "customIdx") // @StreamIndex보다 우선
     List<ItemWithStreamIndex> items;
   }
 
@@ -1941,7 +1957,8 @@ class StreamMergerTest {
    * @StreamOverwrite가 기본 타입 List 필드에 적용된 경우.
    * 병합(append) 대신 전체 덮어쓰기됨.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class OverwriteListContainer {
     @StreamOverwrite
     List<String> tags;
@@ -1951,7 +1968,8 @@ class StreamMergerTest {
    * @StreamOverwrite가 객체 List 필드에 적용된 경우.
    * index 기반 병합 대신 전체 덮어쓰기됨.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class OverwriteObjectListContainer {
     @StreamOverwrite
     List<IndexedItem> items;
@@ -1962,7 +1980,8 @@ class StreamMergerTest {
   /**
    * String 배열을 가진 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class StringArrayContainer {
     String[] tags;
   }
@@ -1970,7 +1989,8 @@ class StreamMergerTest {
   /**
    * primitive int 배열을 가진 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class IntArrayContainer {
     int[] numbers;
   }
@@ -1978,7 +1998,8 @@ class StreamMergerTest {
   /**
    * @StreamIndex를 가진 객체 배열 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ObjectArrayContainer {
     IndexedItem[] items;
   }
@@ -1986,7 +2007,8 @@ class StreamMergerTest {
   /**
    * @StreamList로 인덱스 필드를 지정한 배열 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class StreamListArrayContainer {
     @StreamList(index = "seq")
     ExternalItem[] items;
@@ -1995,7 +2017,8 @@ class StreamMergerTest {
   /**
    * @StreamOverwrite 배열 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class OverwriteArrayContainer {
     @StreamOverwrite
     String[] tags;
@@ -2004,7 +2027,8 @@ class StreamMergerTest {
   /**
    * index 필드가 없는 객체 배열 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class NoIndexArrayContainer {
     NoIndexItem[] items;
   }
@@ -2012,14 +2036,16 @@ class StreamMergerTest {
   /**
    * Record에서 배열 필드 테스트.
    */
-  public record ArrayRecord(String id, String[] tags, IndexedItem[] items) {}
+  public record ArrayRecord(String id, String[] tags, IndexedItem[] items) {
+  }
 
   // === Map Test DTOs ===
 
   /**
    * primitive value Map을 가진 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class PrimitiveMapContainer {
     Map<String, String> metadata;
   }
@@ -2027,7 +2053,8 @@ class StreamMergerTest {
   /**
    * Integer value Map을 가진 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class IntegerMapContainer {
     Map<String, Integer> counts;
   }
@@ -2035,7 +2062,8 @@ class StreamMergerTest {
   /**
    * 객체 value Map을 가진 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class ObjectMapContainer {
     Map<String, SimpleDto> items;
   }
@@ -2043,7 +2071,8 @@ class StreamMergerTest {
   /**
    * @StreamOverwrite Map 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class OverwriteMapContainer {
     @StreamOverwrite
     Map<String, String> config;
@@ -2052,7 +2081,8 @@ class StreamMergerTest {
   /**
    * 중첩된 객체를 가진 Map value 아이템.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class NestedMapItem {
     String name;
     SimpleDto nested;
@@ -2061,7 +2091,8 @@ class StreamMergerTest {
   /**
    * 중첩된 객체 value Map 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class NestedObjectMapContainer {
     Map<String, NestedMapItem> items;
   }
@@ -2073,18 +2104,21 @@ class StreamMergerTest {
    */
   public interface IDocument {
     String getTitle();
+
     String getContent();
   }
 
   /**
    * IDocument의 첫 번째 구현체.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class SimpleDocument implements IDocument {
     private String title;
     private String content;
 
-    public SimpleDocument() {}
+    public SimpleDocument() {
+    }
 
     public SimpleDocument(String title, String content) {
       this.title = title;
@@ -2095,13 +2129,15 @@ class StreamMergerTest {
   /**
    * IDocument의 두 번째 구현체 (다형성 테스트용).
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class RichDocument implements IDocument {
     private String title;
     private String content;
     private String author;
 
-    public RichDocument() {}
+    public RichDocument() {
+    }
 
     public RichDocument(String title, String content, String author) {
       this.title = title;
@@ -2113,7 +2149,8 @@ class StreamMergerTest {
   /**
    * 인터페이스 필드를 가진 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class InterfaceFieldContainer {
     private String name;
     private IDocument document;
@@ -2122,7 +2159,8 @@ class StreamMergerTest {
   /**
    * 인터페이스 List 필드를 가진 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class InterfaceListContainer {
     private String name;
     private List<IDocument> documents;
@@ -2133,16 +2171,19 @@ class StreamMergerTest {
    */
   public interface IIndexedDocument {
     int getIndex();
+
     String getContent();
   }
 
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class IndexedDocument implements IIndexedDocument {
     @StreamIndex
     private int index;
     private String content;
 
-    public IndexedDocument() {}
+    public IndexedDocument() {
+    }
 
     public IndexedDocument(int index, String content) {
       this.index = index;
@@ -2153,7 +2194,8 @@ class StreamMergerTest {
   /**
    * 인덱스가 있는 인터페이스 List 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class IndexedInterfaceListContainer {
     private List<IIndexedDocument> documents;
   }
@@ -2168,8 +2210,7 @@ class StreamMergerTest {
     @Test
     void shouldMergeInterfaceField() {
       // 인터페이스 필드가 있는 객체 병합
-      StreamMerger<InterfaceFieldContainer> merger =
-          new StreamMerger<>(InterfaceFieldContainer.class);
+      StreamMerger<InterfaceFieldContainer> merger = new StreamMerger<>(InterfaceFieldContainer.class);
 
       InterfaceFieldContainer delta1 = new InterfaceFieldContainer();
       delta1.name = "Container";
@@ -2192,8 +2233,7 @@ class StreamMergerTest {
     @Test
     void shouldMergeInterfaceListField() {
       // 인터페이스 List 필드가 있는 객체 병합 (인덱스 없이 append)
-      StreamMerger<InterfaceListContainer> merger =
-          new StreamMerger<>(InterfaceListContainer.class);
+      StreamMerger<InterfaceListContainer> merger = new StreamMerger<>(InterfaceListContainer.class);
 
       InterfaceListContainer delta1 = new InterfaceListContainer();
       delta1.name = "List";
@@ -2224,8 +2264,7 @@ class StreamMergerTest {
     @Test
     void shouldMergeIndexedInterfaceListByIndex() {
       // @StreamIndex가 있는 인터페이스 List 병합
-      StreamMerger<IndexedInterfaceListContainer> merger =
-          new StreamMerger<>(IndexedInterfaceListContainer.class);
+      StreamMerger<IndexedInterfaceListContainer> merger = new StreamMerger<>(IndexedInterfaceListContainer.class);
 
       IndexedInterfaceListContainer delta1 = new IndexedInterfaceListContainer();
       delta1.documents = new ArrayList<>();
@@ -2235,7 +2274,7 @@ class StreamMergerTest {
 
       IndexedInterfaceListContainer delta2 = new IndexedInterfaceListContainer();
       delta2.documents = new ArrayList<>();
-      delta2.documents.add(new IndexedDocument(0, " Friend"));  // 같은 index → 병합
+      delta2.documents.add(new IndexedDocument(0, " Friend")); // 같은 index → 병합
       merger.applyDelta(delta2);
 
       IndexedInterfaceListContainer result = merger.build();
@@ -2253,8 +2292,7 @@ class StreamMergerTest {
     @Test
     void shouldPreservePolymorphicTypesInList() {
       // 다형성: 같은 List에 여러 구현체가 섞여 있는 경우
-      StreamMerger<InterfaceListContainer> merger =
-          new StreamMerger<>(InterfaceListContainer.class);
+      StreamMerger<InterfaceListContainer> merger = new StreamMerger<>(InterfaceListContainer.class);
 
       InterfaceListContainer delta1 = new InterfaceListContainer();
       delta1.documents = new ArrayList<>();
@@ -2280,8 +2318,7 @@ class StreamMergerTest {
     @Test
     void shouldMergeInterfaceValueMap() {
       // 인터페이스 value Map 병합
-      StreamMerger<InterfaceMapContainer> merger =
-          new StreamMerger<>(InterfaceMapContainer.class);
+      StreamMerger<InterfaceMapContainer> merger = new StreamMerger<>(InterfaceMapContainer.class);
 
       InterfaceMapContainer delta1 = new InterfaceMapContainer();
       delta1.documents = new HashMap<>();
@@ -2291,8 +2328,8 @@ class StreamMergerTest {
 
       InterfaceMapContainer delta2 = new InterfaceMapContainer();
       delta2.documents = new HashMap<>();
-      delta2.documents.put("simple", new SimpleDocument(" Updated", " More"));  // 기존 키 병합
-      delta2.documents.put("new", new SimpleDocument("New", "Doc"));  // 새 키
+      delta2.documents.put("simple", new SimpleDocument(" Updated", " More")); // 기존 키 병합
+      delta2.documents.put("new", new SimpleDocument("New", "Doc")); // 새 키
       merger.applyDelta(delta2);
 
       InterfaceMapContainer result = merger.build();
@@ -2316,8 +2353,7 @@ class StreamMergerTest {
     @Test
     void shouldPreservePolymorphicTypesInMap() {
       // Map에서 다형성 타입 보존
-      StreamMerger<InterfaceMapContainer> merger =
-          new StreamMerger<>(InterfaceMapContainer.class);
+      StreamMerger<InterfaceMapContainer> merger = new StreamMerger<>(InterfaceMapContainer.class);
 
       InterfaceMapContainer delta1 = new InterfaceMapContainer();
       delta1.documents = new HashMap<>();
@@ -2337,7 +2373,8 @@ class StreamMergerTest {
   /**
    * 인터페이스 value Map 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class InterfaceMapContainer {
     private Map<String, IDocument> documents;
   }
@@ -2347,7 +2384,8 @@ class StreamMergerTest {
   /**
    * 구체 부모 클래스.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class Animal {
     private String name;
   }
@@ -2355,7 +2393,8 @@ class StreamMergerTest {
   /**
    * 구체 클래스를 상속한 자식 클래스.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class Dog extends Animal {
     private String breed;
   }
@@ -2363,7 +2402,8 @@ class StreamMergerTest {
   /**
    * 구체 클래스를 상속한 또 다른 자식 클래스.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class Cat extends Animal {
     private Integer lives;
   }
@@ -2371,7 +2411,8 @@ class StreamMergerTest {
   /**
    * 구체 부모 클래스 필드를 가진 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class AnimalContainer {
     private String owner;
     private Animal pet;
@@ -2380,7 +2421,8 @@ class StreamMergerTest {
   /**
    * 구체 부모 클래스 List 필드를 가진 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class AnimalListContainer {
     private List<Animal> pets;
   }
@@ -2388,7 +2430,8 @@ class StreamMergerTest {
   /**
    * @StreamIndex가 있는 구체 부모 클래스.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class IndexedAnimal {
     @StreamIndex
     private int index;
@@ -2398,7 +2441,8 @@ class StreamMergerTest {
   /**
    * @StreamIndex가 있는 구체 클래스를 상속한 자식 클래스.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class IndexedDog extends IndexedAnimal {
     private String breed;
   }
@@ -2406,7 +2450,8 @@ class StreamMergerTest {
   /**
    * @StreamIndex가 있는 구체 부모 클래스 List 컨테이너.
    */
-  @Getter @Setter
+  @Getter
+  @Setter
   public static class IndexedAnimalListContainer {
     private List<IndexedAnimal> animals;
   }
@@ -2421,15 +2466,14 @@ class StreamMergerTest {
     @Test
     void shouldMergeConcreteSubclassField() {
       // 구체 클래스 필드에 자식 클래스 인스턴스가 들어온 경우
-      StreamMerger<AnimalContainer> merger =
-          new StreamMerger<>(AnimalContainer.class);
+      StreamMerger<AnimalContainer> merger = new StreamMerger<>(AnimalContainer.class);
 
       AnimalContainer delta1 = new AnimalContainer();
       delta1.owner = "John";
       Dog dog = new Dog();
       dog.setName("Buddy");
       dog.setBreed("Golden ");
-      delta1.pet = dog;  // Animal 필드에 Dog 할당
+      delta1.pet = dog; // Animal 필드에 Dog 할당
       merger.applyDelta(delta1);
 
       AnimalContainer delta2 = new AnimalContainer();
@@ -2443,16 +2487,15 @@ class StreamMergerTest {
       AnimalContainer result = merger.build();
       assertEquals("John Doe", result.owner);
       assertNotNull(result.pet);
-      assertInstanceOf(Dog.class, result.pet);  // Dog 타입 유지
+      assertInstanceOf(Dog.class, result.pet); // Dog 타입 유지
       assertEquals("Buddy Jr", result.pet.getName());
-      assertEquals("Golden Retriever", ((Dog) result.pet).getBreed());  // 자식 필드도 병합됨
+      assertEquals("Golden Retriever", ((Dog) result.pet).getBreed()); // 자식 필드도 병합됨
     }
 
     @Test
     void shouldMergeConcreteSubclassListWithAppend() {
       // 구체 클래스 List에 여러 자식 클래스가 섞인 경우 (index 없이 append)
-      StreamMerger<AnimalListContainer> merger =
-          new StreamMerger<>(AnimalListContainer.class);
+      StreamMerger<AnimalListContainer> merger = new StreamMerger<>(AnimalListContainer.class);
 
       AnimalListContainer delta1 = new AnimalListContainer();
       delta1.pets = new ArrayList<>();
@@ -2487,8 +2530,7 @@ class StreamMergerTest {
     @Test
     void shouldMergeIndexedConcreteSubclassByIndex() {
       // @StreamIndex가 있는 구체 클래스 List에서 자식 클래스 병합
-      StreamMerger<IndexedAnimalListContainer> merger =
-          new StreamMerger<>(IndexedAnimalListContainer.class);
+      StreamMerger<IndexedAnimalListContainer> merger = new StreamMerger<>(IndexedAnimalListContainer.class);
 
       IndexedAnimalListContainer delta1 = new IndexedAnimalListContainer();
       delta1.animals = new ArrayList<>();
@@ -2502,7 +2544,7 @@ class StreamMergerTest {
       IndexedAnimalListContainer delta2 = new IndexedAnimalListContainer();
       delta2.animals = new ArrayList<>();
       IndexedDog dog2 = new IndexedDog();
-      dog2.setIndex(0);  // 같은 index → 병합
+      dog2.setIndex(0); // 같은 index → 병합
       dog2.setName(" Jr");
       dog2.setBreed("Retriever");
       delta2.animals.add(dog2);
@@ -2520,8 +2562,7 @@ class StreamMergerTest {
     @Test
     void shouldPreservePolymorphicConcreteTypesInList() {
       // 같은 List에 부모/자식 클래스가 섞여 있는 경우 타입 보존
-      StreamMerger<AnimalListContainer> merger =
-          new StreamMerger<>(AnimalListContainer.class);
+      StreamMerger<AnimalListContainer> merger = new StreamMerger<>(AnimalListContainer.class);
 
       AnimalListContainer delta1 = new AnimalListContainer();
       delta1.pets = new ArrayList<>();
@@ -2546,7 +2587,7 @@ class StreamMergerTest {
       assertEquals(3, result.pets.size());
 
       // 각 요소가 원래 타입을 유지하는지 확인
-      assertEquals(Animal.class, result.pets.get(0).getClass());  // 정확히 Animal
+      assertEquals(Animal.class, result.pets.get(0).getClass()); // 정확히 Animal
       assertInstanceOf(Dog.class, result.pets.get(1));
       assertInstanceOf(Cat.class, result.pets.get(2));
 

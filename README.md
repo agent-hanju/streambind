@@ -2,10 +2,45 @@
 
 스트리밍 청크 객체를 하나의 누적된 결과로 병합하기 위한 라이브러리.
 
+## 요구사항
+
+- Java 21+
+
 ## 개요
 
 Chat Completion API의 스트림 응답처럼 부분적인 청크 객체가 순차적으로 도착할 때,
-이를 변환하기 위한 인터페이스나, 하나의 완전한 객체로 조립하기 위한 merge 동작 및 클래스 섴계용 어노테이션을 제공합니다.
+이를 변환하기 위한 인터페이스나, 하나의 완전한 객체로 조립하기 위한 merge 동작 및 클래스 설계용 어노테이션을 제공합니다.
+
+## 설치
+
+### Gradle (JitPack)
+
+```gradle
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    implementation 'com.github.agent-hanju:streambind:0.1.0'
+}
+```
+
+### Maven (JitPack)
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>com.github.agent-hanju</groupId>
+    <artifactId>streambind</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
 
 ## 기본 사용법
 
@@ -134,6 +169,51 @@ List/Array 요소의 index 필드는 다음 순서로 결정됩니다:
 - Record 클래스 (canonical 생성자 사용)
 - 제네릭 상속 구조 (`Choice<T>` 등)
 - 다형성 (인터페이스, 추상 클래스, 구체 클래스 상속 - 런타임 타입 기준으로 병합)
+
+## StreamMapper
+
+스트리밍 델타를 변환하기 위한 함수형 인터페이스입니다.
+Reactor의 `Flux`와 함께 사용할 수 있습니다.
+
+```java
+// 1:1 변환 (상태 없음)
+StreamMapper<SdkChunk, MyDelta> mapper = chunk ->
+    List.of(new MyDelta(chunk.getContent(), chunk.getIndex()));
+
+Flux<MyDelta> deltas = mapper.apply(chunkFlux);
+```
+
+### 상태 있는 변환 (버퍼링)
+
+`flush()` 메서드를 오버라이드하면 내부 상태를 유지하는 변환기를 구현할 수 있습니다.
+
+```java
+StreamMapper<String, String> lineMapper = new StreamMapper<>() {
+    private final StringBuilder buffer = new StringBuilder();
+
+    @Override
+    public List<String> map(String chunk) {
+        buffer.append(chunk);
+        List<String> lines = new ArrayList<>();
+        int idx;
+        while ((idx = buffer.indexOf("\n")) >= 0) {
+            lines.add(buffer.substring(0, idx));
+            buffer.delete(0, idx + 1);
+        }
+        return lines;
+    }
+
+    @Override
+    public List<String> flush() {
+        if (buffer.isEmpty()) return List.of();
+        String remaining = buffer.toString();
+        buffer.setLength(0);
+        return List.of(remaining);
+    }
+};
+
+Flux<String> lines = lineMapper.apply(stringFlux);
+```
 
 ## 예시: OpenAI 스트리밍 응답
 

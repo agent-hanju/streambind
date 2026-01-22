@@ -36,21 +36,13 @@ Desktop.ini
 # Java
 *.class
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.ear
 *.logs
 *.log
 hs_err_pid*
 
-# Gradle Wrapper (optional - some projects commit these)
-# Uncomment if you don't want to commit wrapper
-# gradle/wrapper/gradle-wrapper.jar
-# gradlew
-# gradlew.bat
-
 # Local configuration
 local.properties
 *.local
-
-# Test output
-test-output/
