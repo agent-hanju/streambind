@@ -189,6 +189,18 @@ public final class StreamMerger<T> {
       final Object accValue,
       final Object deltaValue) {
 
+    // Object 타입 필드(TypeVariable이 Object로 소거된 경우 포함)에
+    // String, Number 등 단순 타입이 들어오면 리플렉션 분석 없이 직접 병합
+    if (isSimpleValue(deltaValue)) {
+      if (accValue instanceof String accStr && deltaValue instanceof String deltaStr) {
+        return accStr + deltaStr;
+      }
+      if (accValue instanceof Number accNum && deltaValue instanceof Number deltaNum) {
+        return sumNumbers(accNum, deltaNum);
+      }
+      return deltaValue;
+    }
+
     // 인터페이스/추상 클래스의 경우 실제 런타임 타입의 TypeInfo를 사용
     final TypeInfo nestedInfo = TypeMetadataCache.getTypeInfo(deltaValue.getClass());
 
@@ -212,6 +224,12 @@ public final class StreamMerger<T> {
       final FieldMetadata field) {
 
     if (field.isPrimitiveList() || field.isPrimitiveArray()) {
+      accList.addAll(deltaList);
+      return;
+    }
+
+    // List<Object>처럼 동적 타입인 경우: 단순 추가 (런타임에 다양한 타입이 혼재)
+    if (field.isDynamicList()) {
       accList.addAll(deltaList);
       return;
     }
@@ -310,6 +328,12 @@ public final class StreamMerger<T> {
       return;
     }
 
+    // Map<String, Object>처럼 동적 타입인 경우: 각 value의 런타임 타입에 따라 분기
+    if (field.isDynamicValueMap()) {
+      this.mergeDynamicValueMap(accMap, deltaMap);
+      return;
+    }
+
     for (final Map.Entry<String, Object> entry : deltaMap.entrySet()) {
       final String key = entry.getKey();
       final Object deltaItem = entry.getValue();
@@ -328,6 +352,62 @@ public final class StreamMerger<T> {
         this.mergeIntoMap((Map<String, Object>) accItem, deltaItem, actualValueInfo);
       } else {
         accMap.put(key, deltaItem);
+      }
+    }
+  }
+
+  /**
+   * 동적 타입 Map({@code Map<String, Object>})의 delta를 병합한다.
+   *
+   * <p>
+   * 각 value의 런타임 타입에 따라 병합 전략이 결정된다:
+   * <ul>
+   * <li>String: 연결 (concatenation)</li>
+   * <li>Number: 합산 (addition)</li>
+   * <li>Map: 재귀적 병합</li>
+   * <li>Boolean, List 등: 덮어쓰기</li>
+   * <li>POJO: 기존 리플렉션 기반 병합</li>
+   * </ul>
+   */
+  @SuppressWarnings("unchecked")
+  private void mergeDynamicValueMap(
+      final Map<String, Object> accMap,
+      final Map<String, Object> deltaMap) {
+
+    for (final Map.Entry<String, Object> entry : deltaMap.entrySet()) {
+      final String key = entry.getKey();
+      final Object deltaValue = entry.getValue();
+
+      if (deltaValue == null) {
+        continue;
+      }
+
+      final Object accValue = accMap.get(key);
+
+      if (accValue == null) {
+        if (isSimpleValue(deltaValue)) {
+          accMap.put(key, deltaValue);
+        } else {
+          final TypeInfo actualInfo = TypeMetadataCache.getTypeInfo(deltaValue.getClass());
+          accMap.put(key, this.toMergingMap(deltaValue, actualInfo));
+        }
+      } else if (accValue instanceof String accStr && deltaValue instanceof String deltaStr) {
+        accMap.put(key, accStr + deltaStr);
+      } else if (accValue instanceof Number accNum && deltaValue instanceof Number deltaNum) {
+        accMap.put(key, sumNumbers(accNum, deltaNum));
+      } else if (accValue instanceof Map && deltaValue instanceof Map) {
+        this.mergeDynamicValueMap((Map<String, Object>) accValue, (Map<String, Object>) deltaValue);
+      } else if (!isSimpleValue(deltaValue)) {
+        // POJO: 기존 리플렉션 기반 병합
+        final TypeInfo actualInfo = TypeMetadataCache.getTypeInfo(deltaValue.getClass());
+        if (accValue instanceof Map) {
+          this.mergeIntoMap((Map<String, Object>) accValue, deltaValue, actualInfo);
+        } else {
+          accMap.put(key, this.toMergingMap(deltaValue, actualInfo));
+        }
+      } else {
+        // Boolean, List, 기타 단순 타입: 덮어쓰기
+        accMap.put(key, deltaValue);
       }
     }
   }
@@ -367,6 +447,11 @@ public final class StreamMerger<T> {
     }
 
     if (field.isObject()) {
+      // Object 타입 필드(TypeVariable이 Object로 소거된 경우 포함)에
+      // String, Number 등 단순 타입이 들어오면 리플렉션 분석 없이 그대로 반환
+      if (isSimpleValue(value)) {
+        return value;
+      }
       return this.toStorageForm(value, field.getFieldTypeInfo());
     }
 
@@ -387,6 +472,11 @@ public final class StreamMerger<T> {
 
   private List<Object> cloneList(final List<?> list, final FieldMetadata field) {
     if (field.isPrimitiveList() || field.isPrimitiveArray()) {
+      return new ArrayList<>(list);
+    }
+
+    // List<Object>처럼 동적 타입인 경우: 단순 복사 (런타임에 다양한 타입이 혼재)
+    if (field.isDynamicList()) {
       return new ArrayList<>(list);
     }
 
@@ -427,12 +517,55 @@ public final class StreamMerger<T> {
       return new HashMap<>(map);
     }
 
+    // Map<String, Object>처럼 동적 타입인 경우: 각 value의 런타임 타입에 따라 분기
+    if (field.isDynamicValueMap()) {
+      return cloneDynamicMap(map);
+    }
+
     final TypeInfo valueInfo = field.getElementTypeInfo();
     final Map<String, Object> clonedMap = new HashMap<>();
 
     for (final Map.Entry<String, Object> entry : map.entrySet()) {
       if (entry.getValue() != null) {
         clonedMap.put(entry.getKey(), this.toMergingMap(entry.getValue(), valueInfo));
+      }
+    }
+
+    return clonedMap;
+  }
+
+  /**
+   * 동적 타입 Map({@code Map<String, Object>})을 deep clone한다.
+   *
+   * <p>
+   * 각 value의 런타임 타입을 확인하여:
+   * <ul>
+   * <li>String, Number, Boolean: immutable이므로 그대로 복사</li>
+   * <li>Map: 재귀적으로 deep clone</li>
+   * <li>List: shallow copy</li>
+   * <li>그 외(POJO): 기존 {@link #toMergingMap} 사용</li>
+   * </ul>
+   */
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> cloneDynamicMap(final Map<String, Object> map) {
+    final Map<String, Object> clonedMap = new HashMap<>();
+
+    for (final Map.Entry<String, Object> entry : map.entrySet()) {
+      final Object value = entry.getValue();
+      if (value == null) {
+        continue;
+      }
+
+      if (value instanceof Map<?, ?> nestedMap) {
+        clonedMap.put(entry.getKey(), cloneDynamicMap((Map<String, Object>) nestedMap));
+      } else if (value instanceof List<?> nestedList) {
+        clonedMap.put(entry.getKey(), new ArrayList<>(nestedList));
+      } else if (isSimpleValue(value)) {
+        clonedMap.put(entry.getKey(), value);
+      } else {
+        // POJO: 기존 toMergingMap 로직 사용
+        final TypeInfo actualInfo = TypeMetadataCache.getTypeInfo(value.getClass());
+        clonedMap.put(entry.getKey(), this.toMergingMap(value, actualInfo));
       }
     }
 
@@ -571,5 +704,21 @@ public final class StreamMerger<T> {
       return a.longValue() + b.longValue();
     }
     return a.intValue() + b.intValue();
+  }
+
+  /**
+   * 값이 단순 타입(primitive wrapper, String, Map, List 등)인지 확인한다.
+   *
+   * <p>
+   * 단순 타입은 POJO 리플렉션 분석 없이 그대로 처리해야 한다.
+   * JDK 내장 클래스(String, Integer 등)를 리플렉션으로 분석하면
+   * 내부 필드에 대한 public getter가 없어 예외가 발생한다.
+   */
+  private static boolean isSimpleValue(final Object value) {
+    return value instanceof String
+        || value instanceof Number
+        || value instanceof Boolean
+        || value instanceof Map
+        || value instanceof List;
   }
 }

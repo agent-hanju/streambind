@@ -284,6 +284,19 @@ public record FieldMetadata(
   }
 
   /**
+   * 동적 타입 요소의 List인지 확인 ({@code List<Object>}).
+   *
+   * <p>
+   * 요소 타입이 {@code Object}인 List는 컴파일 타임에 요소 타입을 알 수 없으므로,
+   * 런타임에 각 요소의 실제 타입에 따라 처리 방식을 결정해야 한다.
+   *
+   * @return {@code List<Object>}처럼 elementType이 Object.class이면 true
+   */
+  public boolean isDynamicList() {
+    return isList() && elementType == Object.class;
+  }
+
+  /**
    * 기본 타입의 배열인지 확인 (String, Number, Boolean, primitive).
    * 기본 타입 배열은 병합 시 단순히 extend(뒤에 추가)된다.
    *
@@ -374,6 +387,21 @@ public record FieldMetadata(
    */
   public boolean isObjectValueMap() {
     return isMap() && elementType != null && !PRIMITIVE_TYPES.contains(elementType);
+  }
+
+  /**
+   * 동적 타입 value의 Map인지 확인 ({@code Map<String, Object>}).
+   *
+   * <p>
+   * value 타입이 {@code Object}인 Map은 컴파일 타임에 value 타입을 알 수 없으므로,
+   * 런타임에 각 value의 실제 타입에 따라 처리 방식을 결정해야 한다.
+   * JDK 내장 타입(String, Number, Boolean 등)을 POJO로 리플렉션 분석하면
+   * 내부 필드에 대한 getter가 없어 예외가 발생하기 때문이다.
+   *
+   * @return {@code Map<String, Object>}처럼 elementType이 Object.class이면 true
+   */
+  public boolean isDynamicValueMap() {
+    return isMap() && elementType == Object.class;
   }
 
   /**

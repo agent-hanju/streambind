@@ -163,7 +163,8 @@ public final class ObjectBuilder {
     }
 
     // List<Map> -> List<객체> 변환 (재귀)
-    if (value instanceof List<?> list && field.isObjectList()) {
+    // 단, List<Object>처럼 동적 타입인 경우는 그대로 반환
+    if (value instanceof List<?> list && field.isObjectList() && !field.isDynamicList()) {
       return resolveObjectList(field, list);
     }
 
@@ -173,7 +174,8 @@ public final class ObjectBuilder {
     }
 
     // Map<String, Map> -> Map<String, 객체> 변환 (재귀)
-    if (value instanceof Map<?, ?> map && field.isObjectValueMap()) {
+    // 단, Map<String, Object>처럼 동적 타입인 경우는 그대로 반환
+    if (value instanceof Map<?, ?> map && field.isObjectValueMap() && !field.isDynamicValueMap()) {
       return resolveObjectValueMap(field, (Map<String, Object>) map);
     }
 

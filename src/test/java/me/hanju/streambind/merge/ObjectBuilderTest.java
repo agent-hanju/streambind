@@ -429,6 +429,70 @@ class ObjectBuilderTest {
   }
 
   @Nested
+  class DynamicMapBuild {
+
+    @Test
+    void shouldPreserveDynamicMapValues() {
+      Map<String, Object> argsMap = new HashMap<>();
+      argsMap.put("location", "Tokyo");
+      argsMap.put("count", 42);
+      argsMap.put("verbose", true);
+
+      Map<String, Object> values = new HashMap<>();
+      values.put("args", argsMap);
+
+      DynamicMapDto result = ObjectBuilder.build(DynamicMapDto.class, values);
+
+      assertNotNull(result.getArgs());
+      assertEquals("Tokyo", result.getArgs().get("location"));
+      assertEquals(42, result.getArgs().get("count"));
+      assertEquals(true, result.getArgs().get("verbose"));
+    }
+
+    @Test
+    void shouldPreserveNestedMapInDynamicMap() {
+      Map<String, Object> nested = new HashMap<>();
+      nested.put("city", "Seoul");
+
+      Map<String, Object> argsMap = new HashMap<>();
+      argsMap.put("details", nested);
+      argsMap.put("name", "test");
+
+      Map<String, Object> values = new HashMap<>();
+      values.put("args", argsMap);
+
+      DynamicMapDto result = ObjectBuilder.build(DynamicMapDto.class, values);
+
+      assertNotNull(result.getArgs());
+      assertEquals("test", result.getArgs().get("name"));
+      assertInstanceOf(Map.class, result.getArgs().get("details"));
+    }
+  }
+
+  @Nested
+  class DynamicListBuild {
+
+    @Test
+    void shouldPreserveDynamicListValues() {
+      List<Object> itemsList = new ArrayList<>();
+      itemsList.add("hello");
+      itemsList.add(42);
+      itemsList.add(true);
+
+      Map<String, Object> values = new HashMap<>();
+      values.put("items", itemsList);
+
+      DynamicListDto result = ObjectBuilder.build(DynamicListDto.class, values);
+
+      assertNotNull(result.getItems());
+      assertEquals(3, result.getItems().size());
+      assertEquals("hello", result.getItems().get(0));
+      assertEquals(42, result.getItems().get(1));
+      assertEquals(true, result.getItems().get(2));
+    }
+  }
+
+  @Nested
   class NumberTypeConversion {
 
     @Test
@@ -609,6 +673,20 @@ class ObjectBuilderTest {
   static class AnimalContainerDto {
     private String owner;
     private Animal pet;
+  }
+
+  // === Dynamic Map/List Test DTOs ===
+
+  @Getter
+  @Setter
+  static class DynamicMapDto {
+    private Map<String, Object> args;
+  }
+
+  @Getter
+  @Setter
+  static class DynamicListDto {
+    private List<Object> items;
   }
 
   // === TypeVariable Test DTOs ===

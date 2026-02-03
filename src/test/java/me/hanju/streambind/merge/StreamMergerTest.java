@@ -2039,6 +2039,47 @@ class StreamMergerTest {
   public record ArrayRecord(String id, String[] tags, IndexedItem[] items) {
   }
 
+  // === Generic<Object> Test DTOs ===
+
+  /**
+   * Object를 제네릭 인자로 사용하는 응답 클래스.
+   * BaseResponse<Object>를 상속 → choices가 List<GenericChoice<Object>>가 됨.
+   */
+  @Getter
+  @Setter
+  public static class ObjectResponse extends BaseResponse<Object> {
+  }
+
+  // === Dynamic Map/List Test DTOs ===
+
+  /**
+   * Map<String, Object> 필드를 가진 컨테이너 (Gemini FunctionCall.args 시나리오).
+   */
+  @Getter
+  @Setter
+  public static class DynamicMapContainer {
+    Map<String, Object> args;
+  }
+
+  /**
+   * List<Object> 필드를 가진 컨테이너.
+   */
+  @Getter
+  @Setter
+  public static class DynamicListContainer {
+    List<Object> items;
+  }
+
+  /**
+   * @StreamOverwrite Map<String, Object> 필드를 가진 컨테이너.
+   */
+  @Getter
+  @Setter
+  public static class OverwriteDynamicMapContainer {
+    @StreamOverwrite
+    Map<String, Object> args;
+  }
+
   // === Map Test DTOs ===
 
   /**
@@ -2594,6 +2635,226 @@ class StreamMergerTest {
       // 자식 클래스의 추가 필드도 보존되는지 확인
       assertEquals("Golden", ((Dog) result.pets.get(1)).getBreed());
       assertEquals(9, ((Cat) result.pets.get(2)).getLives());
+    }
+  }
+
+  // ========== Map<String, Object> / List<Object> 동적 타입 지원 ==========
+
+  @Nested
+  class DynamicMapSupport {
+
+    @Test
+    void shouldMergeSingleDeltaWithMixedTypes() {
+      StreamMerger<DynamicMapContainer> merger = new StreamMerger<>(DynamicMapContainer.class);
+
+      DynamicMapContainer delta = new DynamicMapContainer();
+      delta.args = new HashMap<>();
+      delta.args.put("location", "Tokyo");
+      delta.args.put("count", 10);
+      delta.args.put("verbose", true);
+      merger.applyDelta(delta);
+
+      DynamicMapContainer result = merger.build();
+
+      assertEquals("Tokyo", result.args.get("location"));
+      assertEquals(10, result.args.get("count"));
+      assertEquals(true, result.args.get("verbose"));
+    }
+
+    @Test
+    void shouldConcatStringValuesAcrossDeltas() {
+      StreamMerger<DynamicMapContainer> merger = new StreamMerger<>(DynamicMapContainer.class);
+
+      DynamicMapContainer delta1 = new DynamicMapContainer();
+      delta1.args = new HashMap<>();
+      delta1.args.put("query", "Hello");
+      merger.applyDelta(delta1);
+
+      DynamicMapContainer delta2 = new DynamicMapContainer();
+      delta2.args = new HashMap<>();
+      delta2.args.put("query", " World");
+      merger.applyDelta(delta2);
+
+      DynamicMapContainer result = merger.build();
+      assertEquals("Hello World", result.args.get("query"));
+    }
+
+    @Test
+    void shouldSumNumberValuesAcrossDeltas() {
+      StreamMerger<DynamicMapContainer> merger = new StreamMerger<>(DynamicMapContainer.class);
+
+      DynamicMapContainer delta1 = new DynamicMapContainer();
+      delta1.args = new HashMap<>();
+      delta1.args.put("count", 10);
+      merger.applyDelta(delta1);
+
+      DynamicMapContainer delta2 = new DynamicMapContainer();
+      delta2.args = new HashMap<>();
+      delta2.args.put("count", 5);
+      merger.applyDelta(delta2);
+
+      DynamicMapContainer result = merger.build();
+      assertEquals(15, result.args.get("count"));
+    }
+
+    @Test
+    void shouldOverwriteBooleanValues() {
+      StreamMerger<DynamicMapContainer> merger = new StreamMerger<>(DynamicMapContainer.class);
+
+      DynamicMapContainer delta1 = new DynamicMapContainer();
+      delta1.args = new HashMap<>();
+      delta1.args.put("enabled", true);
+      merger.applyDelta(delta1);
+
+      DynamicMapContainer delta2 = new DynamicMapContainer();
+      delta2.args = new HashMap<>();
+      delta2.args.put("enabled", false);
+      merger.applyDelta(delta2);
+
+      DynamicMapContainer result = merger.build();
+      assertEquals(false, result.args.get("enabled"));
+    }
+
+    @Test
+    void shouldMergeNestedMapValues() {
+      StreamMerger<DynamicMapContainer> merger = new StreamMerger<>(DynamicMapContainer.class);
+
+      DynamicMapContainer delta1 = new DynamicMapContainer();
+      delta1.args = new HashMap<>();
+      Map<String, Object> nested1 = new HashMap<>();
+      nested1.put("city", "Seoul");
+      delta1.args.put("details", nested1);
+      merger.applyDelta(delta1);
+
+      DynamicMapContainer delta2 = new DynamicMapContainer();
+      delta2.args = new HashMap<>();
+      Map<String, Object> nested2 = new HashMap<>();
+      nested2.put("country", "Korea");
+      delta2.args.put("details", nested2);
+      merger.applyDelta(delta2);
+
+      DynamicMapContainer result = merger.build();
+      assertInstanceOf(Map.class, result.args.get("details"));
+      @SuppressWarnings("unchecked")
+      Map<String, Object> details = (Map<String, Object>) result.args.get("details");
+      assertEquals("Seoul", details.get("city"));
+      assertEquals("Korea", details.get("country"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldMergeMixedTypesAcrossMultipleDeltas() {
+      // Gemini FunctionCall.args 실제 시나리오 시뮬레이션
+      StreamMerger<DynamicMapContainer> merger = new StreamMerger<>(DynamicMapContainer.class);
+
+      DynamicMapContainer delta1 = new DynamicMapContainer();
+      delta1.args = new HashMap<>();
+      delta1.args.put("location", "To");
+      delta1.args.put("unit", "celsius");
+      delta1.args.put("count", 1);
+      delta1.args.put("verbose", true);
+      merger.applyDelta(delta1);
+
+      DynamicMapContainer delta2 = new DynamicMapContainer();
+      delta2.args = new HashMap<>();
+      delta2.args.put("location", "kyo");
+      delta2.args.put("count", 2);
+      merger.applyDelta(delta2);
+
+      DynamicMapContainer result = merger.build();
+      assertEquals("Tokyo", result.args.get("location"));
+      assertEquals("celsius", result.args.get("unit"));
+      assertEquals(3, result.args.get("count"));
+      assertEquals(true, result.args.get("verbose"));
+    }
+
+    @Test
+    void shouldHandleStreamOverwriteDynamicMap() {
+      StreamMerger<OverwriteDynamicMapContainer> merger = new StreamMerger<>(OverwriteDynamicMapContainer.class);
+
+      OverwriteDynamicMapContainer delta1 = new OverwriteDynamicMapContainer();
+      delta1.args = new HashMap<>();
+      delta1.args.put("location", "Tokyo");
+      merger.applyDelta(delta1);
+
+      OverwriteDynamicMapContainer delta2 = new OverwriteDynamicMapContainer();
+      delta2.args = new HashMap<>();
+      delta2.args.put("location", "Osaka");
+      merger.applyDelta(delta2);
+
+      OverwriteDynamicMapContainer result = merger.build();
+      // @StreamOverwrite이므로 전체 Map이 덮어쓰기됨
+      assertEquals("Osaka", result.args.get("location"));
+      assertNull(result.args.get("unit")); // delta1의 다른 키는 사라짐 (없었으므로)
+    }
+  }
+
+  @Nested
+  class GenericObjectSupport {
+
+    @Test
+    void shouldHandleGenericObjectField() {
+      // BaseResponse<Object>를 상속한 ObjectResponse
+      // GenericChoice<Object>의 message 필드가 Object 타입
+      StreamMerger<ObjectResponse> merger = new StreamMerger<>(ObjectResponse.class);
+
+      ObjectResponse delta = new ObjectResponse();
+      delta.setId("resp-1");
+      delta.setChoices(new ArrayList<>());
+      GenericChoice<Object> choice = new GenericChoice<>();
+      choice.setIndex(0);
+      choice.setMessage("Hello"); // Object 필드에 String 값
+      delta.getChoices().add(choice);
+      merger.applyDelta(delta);
+
+      ObjectResponse result = merger.build();
+      assertEquals("resp-1", result.getId());
+      assertEquals(1, result.getChoices().size());
+      assertEquals("Hello", result.getChoices().get(0).getMessage());
+    }
+  }
+
+  @Nested
+  class DynamicListSupport {
+
+    @Test
+    void shouldAppendDynamicListValues() {
+      StreamMerger<DynamicListContainer> merger = new StreamMerger<>(DynamicListContainer.class);
+
+      DynamicListContainer delta1 = new DynamicListContainer();
+      delta1.items = new ArrayList<>();
+      delta1.items.add("hello");
+      delta1.items.add(42);
+      merger.applyDelta(delta1);
+
+      DynamicListContainer delta2 = new DynamicListContainer();
+      delta2.items = new ArrayList<>();
+      delta2.items.add(true);
+      merger.applyDelta(delta2);
+
+      DynamicListContainer result = merger.build();
+      assertEquals(3, result.items.size());
+      assertEquals("hello", result.items.get(0));
+      assertEquals(42, result.items.get(1));
+      assertEquals(true, result.items.get(2));
+    }
+
+    @Test
+    void shouldHandleSingleDeltaDynamicList() {
+      StreamMerger<DynamicListContainer> merger = new StreamMerger<>(DynamicListContainer.class);
+
+      DynamicListContainer delta = new DynamicListContainer();
+      delta.items = new ArrayList<>();
+      delta.items.add("text");
+      delta.items.add(3.14);
+      delta.items.add(false);
+      merger.applyDelta(delta);
+
+      DynamicListContainer result = merger.build();
+      assertEquals(3, result.items.size());
+      assertEquals("text", result.items.get(0));
+      assertEquals(3.14, result.items.get(1));
+      assertEquals(false, result.items.get(2));
     }
   }
 }
